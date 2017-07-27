@@ -59,8 +59,17 @@ namespace CoreRCON
 		public async Task ConnectAsync()
 		{
 			_tcp = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			await _tcp.ConnectAsync(_endpoint);
-			_connected = true;
+            try
+            {
+                await _tcp.ConnectAsync(_endpoint);
+                _connected = true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                throw new UnreachableHostException("Unable to connect to host;");
+            }
+			
 
 			// Set up TCP listener
 			var e = new SocketAsyncEventArgs();
@@ -146,7 +155,15 @@ namespace CoreRCON
 		private async Task SendPacketAsync(RCONPacket packet)
 		{
 			if (!_connected) throw new InvalidOperationException("Connection is closed.");
-			await _tcp.SendAsync(new ArraySegment<byte>(packet.ToBytes()), SocketFlags.None);
+            try
+            {
+                await _tcp.SendAsync(new ArraySegment<byte>(packet.ToBytes()), SocketFlags.None);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                CloseConnection();
+            }
 		}
 
 		/// <summary>
@@ -194,13 +211,19 @@ namespace CoreRCON
 				}
 				catch (Exception ex)
 				{
-					Dispose();
-					OnDisconnected();
-					return;
+                    System.Diagnostics.Debug.WriteLine(ex);
+                    CloseConnection();
 				}
 
 				await Task.Delay(checkedDelay);
 			}
 		}
+
+        private void CloseConnection()
+        {
+            Dispose();
+            OnDisconnected();
+            return;
+        }
 	}
 }
